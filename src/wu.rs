@@ -103,17 +103,18 @@ impl WUHashBuilder {
 mod test {
     use super::*;
 
+
     #[test]
     #[should_panic]
     fn no_modulus() {
-        let wh = WUHashBuilder::new()
+        WUHashBuilder::new()
                     .finalize()
                     .unwrap();
     }
 
     #[test]
     fn valid() {
-        let wh = WUHashBuilder::new()
+        WUHashBuilder::new()
                     .modulus(10)
                     .finalize()
                     .unwrap();
