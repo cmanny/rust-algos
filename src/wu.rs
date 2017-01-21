@@ -1,6 +1,7 @@
 extern crate rand;
 
 use wu::rand::Rng;
+use std::num::Wrapping;
 
 #[derive(Debug)]
 pub struct WUHash {
@@ -16,8 +17,8 @@ pub struct WUHashBuilder {
 }
 
 impl WUHash {
-    pub fn eval(&self, x: u64) -> u64 {
-        ((self.a * x + self.b) % self.prime) % self.modulus
+    pub fn eval(&self, x: u64) -> usize {
+        (((self.b.wrapping_add(self.a.wrapping_mul(x))) % self.prime) % self.modulus) as usize
     }
 }
 
@@ -53,19 +54,18 @@ impl WUHashBuilder {
         self
     }
 
-    pub fn finalize(&self) -> Option<WUHash> {
+    pub fn finalize(&self) -> WUHash {
         if self.wh.modulus != 0 {
-            Some(
-                WUHash {
-                    prime: self.wh.prime,
-                    modulus: self.wh.modulus,
-                    a: self.wh.a,
-                    b: self.wh.b,
-                }
-            )
+            WUHash {
+                prime: self.wh.prime,
+                modulus: self.wh.modulus,
+                a: self.wh.a,
+                b: self.wh.b,
+            }
         } else {
-            None
+            panic!("WUHash modulus 0, will not continue");
         }
+
     }
 }
 
@@ -74,12 +74,10 @@ mod test {
     use super::*;
 
     #[test]
+    #[should_panic]
     fn no_modulus() {
         let wh = WUHashBuilder::new()
-                    .a(453534)
-                    .b(5667546343)
                     .finalize();
-        assert_eq!(wh.is_some(), false)
     }
 
     #[test]
@@ -87,6 +85,25 @@ mod test {
         let wh = WUHashBuilder::new()
                     .modulus(10)
                     .finalize();
-        assert_eq!(wh.is_some(), true)
+    }
+
+    #[test]
+    fn distributed() {
+        const TABLE_SIZE: u64 = 1000;
+        let wh = WUHashBuilder::new()
+                    .modulus(TABLE_SIZE)
+                    .finalize();
+
+        let mut ys: [u64; TABLE_SIZE as usize] = [0; TABLE_SIZE as usize];
+
+        for i in 0..TABLE_SIZE {
+            ys[wh.eval(i)] += 1
+        }
+
+        for i in 0..TABLE_SIZE {
+            if ys[i as usize] > TABLE_SIZE / 100 {
+                panic!("WUHash is not distributed")
+            }
+        }
     }
 }
