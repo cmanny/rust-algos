@@ -5,3 +5,4 @@ authors = ["Callum Mann <cm13558@my.bristol.ac.uk>"]
 
 [dependencies]
 rand="0.3.0"
+num="*"

@@ -1,7 +1,33 @@
 extern crate rand;
 
 use wu::rand::Rng;
-use std::num::Wrapping;
+use num::bigint::{BigInt};
+use num::traits::ToPrimitive;
+use std::error;
+use std::error::Error;
+use std::fmt;
+
+
+#[derive(Debug)]
+pub enum WUHashError {
+    ZeroModulus,
+}
+
+impl error::Error for WUHashError {
+    fn description(&self) -> &str {
+        match *self {
+            WUHashError::ZeroModulus => "The table size (modulus) is zero!"
+        }
+    }
+}
+
+impl fmt::Display for WUHashError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            WUHashError::ZeroModulus => write!(f, "WUHashError: {}", self.description())
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct WUHash {
@@ -18,7 +44,11 @@ pub struct WUHashBuilder {
 
 impl WUHash {
     pub fn eval(&self, x: u64) -> usize {
-        (((self.b.wrapping_add(self.a.wrapping_mul(x))) % self.prime) % self.modulus) as usize
+        ((
+            (BigInt::from(self.a) * BigInt::from(x) + BigInt::from(self.b))
+            % BigInt::from(self.prime)).to_u64().unwrap()
+            % self.modulus)
+            as usize
     }
 }
 
@@ -54,16 +84,16 @@ impl WUHashBuilder {
         self
     }
 
-    pub fn finalize(&self) -> WUHash {
+    pub fn finalize(&self) -> Result<WUHash, WUHashError> {
         if self.wh.modulus != 0 {
-            WUHash {
+            Ok(WUHash {
                 prime: self.wh.prime,
                 modulus: self.wh.modulus,
                 a: self.wh.a,
                 b: self.wh.b,
-            }
+            })
         } else {
-            panic!("WUHash modulus 0, will not continue");
+            Err(WUHashError::ZeroModulus)
         }
 
     }
@@ -77,14 +107,16 @@ mod test {
     #[should_panic]
     fn no_modulus() {
         let wh = WUHashBuilder::new()
-                    .finalize();
+                    .finalize()
+                    .unwrap();
     }
 
     #[test]
     fn valid() {
         let wh = WUHashBuilder::new()
                     .modulus(10)
-                    .finalize();
+                    .finalize()
+                    .unwrap();
     }
 
     #[test]
@@ -92,7 +124,8 @@ mod test {
         const TABLE_SIZE: u64 = 1000;
         let wh = WUHashBuilder::new()
                     .modulus(TABLE_SIZE)
-                    .finalize();
+                    .finalize()
+                    .unwrap();
 
         let mut ys: [u64; TABLE_SIZE as usize] = [0; TABLE_SIZE as usize];
 
@@ -101,6 +134,7 @@ mod test {
         }
 
         for i in 0..TABLE_SIZE {
+            println!("{} has {}", i, ys[i as usize]);
             if ys[i as usize] > TABLE_SIZE / 100 {
                 panic!("WUHash is not distributed")
             }
