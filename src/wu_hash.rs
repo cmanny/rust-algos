@@ -1,6 +1,5 @@
-extern crate rand;
-
-use wu::rand::Rng;
+use rand;
+use rand::Rng;
 use num::bigint::{BigInt};
 use num::traits::ToPrimitive;
 use std::error;
